@@ -8,8 +8,8 @@ try:
     import xformers
     import xformers.ops
     XFORMERS_IS_AVAILBLE = True
-except Exception as e:
-    raise RuntimeError('xformers is not installed correctly.')
+except Exception:
+    # Fall back to torch attention when xformers is unavailable.
     XFORMERS_IS_AVAILBLE = False
 
 from lvdm.common import (
@@ -47,17 +47,24 @@ class RelativePosition(nn.Module):
 ### https://en.wikipedia.org/wiki/Thread_block_(CUDA_programming)#Dimensions
 ### https://github.com/facebookresearch/xformers/issues/998
 def xformers_attn(q, k, v, MAX_XFORMERS_BATCH_SIZE=65535):
-    if q.shape[0] <= MAX_XFORMERS_BATCH_SIZE:
-        out = xformers.ops.memory_efficient_attention(q, k, v, attn_bias=None, op=None)
+    if XFORMERS_IS_AVAILBLE:
+        if q.shape[0] <= MAX_XFORMERS_BATCH_SIZE:
+            out = xformers.ops.memory_efficient_attention(q, k, v, attn_bias=None, op=None)
+        else:
+            outs = []
+            n_batch = int(math.ceil(float(q.shape[0]) / MAX_XFORMERS_BATCH_SIZE))
+            for _i in range(n_batch):
+                sidx = _i * MAX_XFORMERS_BATCH_SIZE
+                eidx = min(q.shape[0], (_i + 1) * MAX_XFORMERS_BATCH_SIZE)
+                outs.append(
+                    xformers.ops.memory_efficient_attention(
+                        q[sidx:eidx], k[sidx:eidx], v[sidx:eidx], attn_bias=None, op=None
+                    )
+                )
+            out = torch.cat(outs, dim=0)
     else:
-        outs = []
-        n_batch = int(math.ceil(float(q.shape[0])/MAX_XFORMERS_BATCH_SIZE))
-        for _i in range(n_batch):
-            sidx = _i*MAX_XFORMERS_BATCH_SIZE
-            eidx = min(q.shape[0], (_i+1)*MAX_XFORMERS_BATCH_SIZE)
-            outs.append(xformers.ops.memory_efficient_attention(
-                q[sidx:eidx], k[sidx:eidx], v[sidx:eidx], attn_bias=None, op=None))
-        out = torch.cat(outs, dim=0)
+        # Torch SDPA fallback (slower than xformers, but avoids dependency).
+        out = F.scaled_dot_product_attention(q, k, v, attn_mask=None, dropout_p=0.0, is_causal=False)
     return out
 
 class CrossAttention(nn.Module):

@@ -24,9 +24,15 @@ conda activate enerverse
 
 pip install -r requirements.txt
 
-### install pytorch3d following https://github.com/facebookresearch/pytorch3d
+### (Optional) pytorch3d
+### Not required by current training/inference code. Skip if no wheel.
+### https://github.com/facebookresearch/pytorch3d
 ### note that although the CUDA version is 11.8, we use the pytorch3d prebuilt on CUDA 12.1
-pip install --no-index --no-cache-dir pytorch3d -f https://dl.fbaipublicfiles.com/pytorch3d/packaging/wheels/py310_cu121_pyt240/download.html
+### pip install --no-index --no-cache-dir pytorch3d -f https://dl.fbaipublicfiles.com/pytorch3d/packaging/wheels/py310_cu121_pyt240/download.html
+
+### (Optional) xformers
+### Speeds up attention if available. Not required.
+### pip install xformers==0.0.27.post2
 
 ```
 

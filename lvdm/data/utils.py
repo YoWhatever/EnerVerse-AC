@@ -1,7 +1,50 @@
 import torch
 import numpy as np
 import random
-from pytorch3d.transforms.rotation_conversions import quaternion_to_matrix
+
+
+def quaternion_to_matrix(quaternions: torch.Tensor) -> torch.Tensor:
+    """Convert wxyz quaternions to rotation matrices.
+
+    This is a lightweight replacement for pytorch3d.transforms.rotation_conversions.quaternion_to_matrix
+    to avoid an extra dependency.
+    """
+    if quaternions.shape[-1] != 4:
+        raise ValueError("Expected quaternions with shape (..., 4)")
+    # Normalize to unit quaternions
+    q = quaternions / (quaternions.norm(dim=-1, keepdim=True).clamp_min(1e-8))
+    w, x, y, z = q.unbind(dim=-1)
+
+    ww = w * w
+    xx = x * x
+    yy = y * y
+    zz = z * z
+    wx = w * x
+    wy = w * y
+    wz = w * z
+    xy = x * y
+    xz = x * z
+    yz = y * z
+
+    m00 = ww + xx - yy - zz
+    m01 = 2 * (xy - wz)
+    m02 = 2 * (xz + wy)
+    m10 = 2 * (xy + wz)
+    m11 = ww - xx + yy - zz
+    m12 = 2 * (yz - wx)
+    m20 = 2 * (xz - wy)
+    m21 = 2 * (yz + wx)
+    m22 = ww - xx - yy + zz
+
+    mat = torch.stack(
+        [
+            torch.stack([m00, m01, m02], dim=-1),
+            torch.stack([m10, m11, m12], dim=-1),
+            torch.stack([m20, m21, m22], dim=-1),
+        ],
+        dim=-2,
+    )
+    return mat
 
 
 def gen_batch_ray_parellel(intrinsic,c2w,W,H):
