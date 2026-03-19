@@ -11,6 +11,7 @@ try:
 except Exception:
     # Fall back to torch attention when xformers is unavailable.
     XFORMERS_IS_AVAILBLE = False
+SDPA_IS_AVAILABLE = hasattr(F, "scaled_dot_product_attention")
 
 from lvdm.common import (
     checkpoint,
@@ -101,7 +102,7 @@ class CrossAttention(nn.Module):
         else:
             temporal_length = None
             ## only used for spatial attention, while NOT for temporal attention
-            if XFORMERS_IS_AVAILBLE and temporal_length is None:
+            if (XFORMERS_IS_AVAILBLE or SDPA_IS_AVAILABLE) and temporal_length is None:
                 # print('NOTE: Using XFORMERS')
                 self.forward = self.efficient_forward
 
