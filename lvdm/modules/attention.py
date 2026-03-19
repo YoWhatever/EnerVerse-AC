@@ -134,6 +134,9 @@ class CrossAttention(nn.Module):
         self.infer_block_batchsize = 1
 
     def forward(self, x, context=None, mask=None, seq_length=None):
+        # Force SDPA/xformers path when available to reduce memory.
+        if not self.relative_position and (XFORMERS_IS_AVAILBLE or SDPA_IS_AVAILABLE):
+            return self.efficient_forward(x, context=context, mask=mask, seq_length=seq_length)
         spatial_self_attn = (context is None)
         k_ip, v_ip, out_ip = None, None, None
 
